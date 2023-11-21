@@ -1,4 +1,5 @@
 import argparse
+import pickle
 
 import gymnasium as gym
 import pygame
@@ -54,11 +55,14 @@ def record_demo(env_id, fps=30, zoom=3.0):
     pygame.display.set_caption(f'Recording demonstration for {env_id}')
 
     env = gym.make(env_id, render_mode='rgb_array')
+    fd = open('a.txt', 'wb')
+    obss = list()
 
     def callback(obs_t_, obs_tp1_, action_, rew_, terminated_, truncated_, info_):
-        if isinstance(obs_t_, tuple):
+        if isinstance(obs_t_, tuple):  # Very first callback comes with extra `info` object.
             obs_t_ = obs_t_[0]
         print(f'obs_t.shape={obs_t_.shape}; obs_tp1.shape={obs_tp1_.shape}; action={action_}; rew={rew_}; terminated={terminated_}; truncated={truncated_}; info={info_}')
+        obss.append(obs_t_)
 
     atari_env = env.unwrapped
     assert isinstance(atari_env, AtariEnv)
@@ -66,6 +70,11 @@ def record_demo(env_id, fps=30, zoom=3.0):
     meaning_to_index = {meaning: i for i, meaning in enumerate(meanings)}
     key_to_index = {key: meaning_to_index[meaning] for key, meaning in KEY_TO_MEANING.items()}
     play.play(env, fps=fps, zoom=zoom, callback=callback, keys_to_action=key_to_index, noop=meaning_to_index['NOOP'])
+
+    print('Saving...')
+    pickle.dump(obss, fd)
+    fd.close()
+    print('Saved.')
 
 
 if __name__ == '__main__':
