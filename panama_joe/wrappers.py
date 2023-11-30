@@ -17,8 +17,9 @@ class AtariDemo(gym.Wrapper):
         # self.action_space = spaces.Discrete(len(env.unwrapped._action_set)+1) # add "time travel" action
         self.action_space = spaces.Discrete(len(env.unwrapped.get_action_meanings())+1)  # add "save" action
         self.save_every_k = 100
-        # self.max_time_travel_steps = 10000
-        # self.disable_time_travel = disable_time_travel
+        self.steps_in_the_past = 0
+        self.max_time_travel_steps = 10000
+        self.disable_time_travel = disable_time_travel
 
         self.actions = None
         self.lives = None
@@ -31,45 +32,46 @@ class AtariDemo(gym.Wrapper):
         self.info = None
 
     def step(self, action):
-        # if action >= len(self.env.unwrapped.get_action_meanings()):
-            #     if self.disable_time_travel:
-        # obs, reward, terminated, truncated, info = self.env.step(0)
-        # else:
-        #     obs, reward, terminated, truncated, info = self.time_travel()
+        if action == len(self.env.unwrapped.get_action_meanings()) + 1:  # 't': time travel
+            if self.disable_time_travel:
+                obs, reward, terminated, truncated, info = self.env.step(0)
+            else:
+                obs, reward, terminated, truncated, info = self.time_travel()
 
-        # else:
-        # if self.steps_in_the_past > 0:
-        #     self.restore_past_state()
-
-        # if len(self.done) > 0 and self.done[-1]:
-        #     obs = self.obs[-1]
-        #     reward = 0
-        #     done = True
-        #     info = None
-
-        # else:
-        atari_env = self.env.unwrapped
-        assert isinstance(atari_env, AtariEnv)
-        self.lives.append(atari_env.ale.lives())
-
-        if action >= len(atari_env.get_action_meanings()):
-            obs, reward, terminated, truncated, info = self.env.step(0)
-            stamp = int(time.time())
-            self.save_to_file(str(stamp) + '.demo')
         else:
-            obs, reward, terminated, truncated, info = self.env.step(action)
-            self.actions.append(action)
-            self.obs.append(obs)
-            self.rewards.append(reward)
-            self.terminated.append(terminated)
-            self.truncated.append(truncated)
-            self.info.append(info)
+            if self.steps_in_the_past > 0:
+                self.restore_past_state()
 
-        # periodic checkpoint saving
-        if not terminated and not truncated:
-            if (len(self.checkpoint_action_nr)>0 and len(self.actions) >= self.checkpoint_action_nr[-1] + self.save_every_k) \
-                    or (len(self.checkpoint_action_nr)==0 and len(self.actions) >= self.save_every_k):
-                self.save_checkpoint()
+            if (len(self.terminated) > 0 and self.terminated[-1]) or (len(self.truncated) > 0 and self.truncated[-1]):
+                obs = self.obs[-1]
+                reward = 0
+                terminated = self.terminated[-1]
+                truncated = self.truncated[-1]
+                info = None
+
+            else:
+                atari_env = self.env.unwrapped
+                assert isinstance(atari_env, AtariEnv)
+                self.lives.append(atari_env.ale.lives())
+
+                if action == len(atari_env.get_action_meanings()):  # 's': save
+                    obs, reward, terminated, truncated, info = self.env.step(0)
+                    stamp = int(time.time())
+                    self.save_to_file(str(stamp) + '.demo')
+                else:
+                    obs, reward, terminated, truncated, info = self.env.step(action)
+                    self.actions.append(action)
+                    self.obs.append(obs)
+                    self.rewards.append(reward)
+                    self.terminated.append(terminated)
+                    self.truncated.append(truncated)
+                    self.info.append(info)
+
+            # periodic checkpoint saving
+            if not terminated and not truncated:
+                if (len(self.checkpoint_action_nr) > 0 and len(self.actions) >= self.checkpoint_action_nr[-1] + self.save_every_k) \
+                        or (len(self.checkpoint_action_nr) == 0 and len(self.actions) >= self.save_every_k):
+                    self.save_checkpoint()
 
         return obs, reward, terminated, truncated, info
 
@@ -87,46 +89,52 @@ class AtariDemo(gym.Wrapper):
         # self.steps_in_the_past = 0
         return obs
 
-    # def time_travel(self):
-    #     if len(self.obs) > 1:
-    #         reward = self.rewards.pop()
-    #         self.obs.pop()
-    #         self.done.pop()
-    #         self.info.pop()
-    #         self.lives.pop()
-    #         obs = self.obs[-1]
-    #         done = self.done[-1]
-    #         info = self.info[-1]
-    #         self.steps_in_the_past += 1
-    #
-    #     else: # reached time travel limit
-    #         reward = 0
-    #         obs = self.obs[0]
-    #         done = self.done[0]
-    #         info = self.info[0]
-    #
-    #     # rewards are differences in subsequent state values, and so should get reversed sign when going backward in time
-    #     reward = -reward
-    #
-    #     return obs, reward, done, info
+    def time_travel(self):
+        if len(self.obs) > 1:
+            reward = self.rewards.pop()
+            self.obs.pop()
+            self.terminated.pop()
+            self.truncated.pop()
+            self.info.pop()
+            self.lives.pop()
+            obs = self.obs[-1]
+            terminated = self.terminated[-1]
+            truncated = self.truncated[-1]
+            info = self.info[-1]
+            self.steps_in_the_past += 1
+
+        else: # reached time travel limit
+            reward = 0
+            obs = self.obs[0]
+            terminated = self.terminated[0]
+            truncated = self.truncated[0]
+            info = self.info[0]
+
+        # rewards are differences in subsequent state values, and so should get reversed sign when going backward in time
+        reward = -reward
+
+        return obs, reward, terminated, truncated, info
 
     def save_to_file(self, file_name):
         dat = {'actions': self.actions, 'checkpoints': self.checkpoints, 'checkpoint_action_nr': self.checkpoint_action_nr,
+               'obs': self.obs,
                'rewards': self.rewards, 'lives': self.lives}
         with open(file_name, "wb") as f:
             pickle.dump(dat, f)
 
-    # def load_from_file(self, file_name):
-    #     self.reset()
-    #     with open(file_name, "rb") as f:
-    #         dat = pickle.load(f)
-    #     self.actions = dat['actions']
-    #     self.checkpoints = dat['checkpoints']
-    #     self.checkpoint_action_nr = dat['checkpoint_action_nr']
-    #     self.rewards = dat['rewards']
-    #     self.lives = dat['lives']
-    #     self.load_state_and_walk_forward()
-    #
+    def load_from_file(self, file_name):
+        obs = self.reset()
+        with open(file_name, "rb") as f:
+            dat = pickle.load(f)
+        self.actions = dat['actions']
+        self.checkpoints = dat['checkpoints']
+        self.checkpoint_action_nr = dat['checkpoint_action_nr']
+        self.obs = dat['obs']
+        self.rewards = dat['rewards']
+        self.lives = dat['lives']
+        self.load_state_and_walk_forward()
+        return obs
+
     def save_checkpoint(self):
         chk_pnt = self.env.unwrapped.clone_state()
         self.checkpoints.append(chk_pnt)
@@ -134,14 +142,14 @@ class AtariDemo(gym.Wrapper):
 
     def restore_past_state(self):
         self.actions = self.actions[:-self.steps_in_the_past]
-        while len(self.checkpoints)>0 and self.checkpoint_action_nr[-1]>len(self.actions):
+        while len(self.checkpoints) > 0 and self.checkpoint_action_nr[-1] > len(self.actions):
             self.checkpoints.pop()
             self.checkpoint_action_nr.pop()
         self.load_state_and_walk_forward()
         self.steps_in_the_past = 0
 
     def load_state_and_walk_forward(self):
-        if len(self.checkpoints)==0:
+        if len(self.checkpoints) == 0:
             self.env.reset()
             time_step = 0
         else:
