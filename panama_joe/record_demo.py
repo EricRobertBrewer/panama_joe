@@ -10,8 +10,8 @@ from gymnasium.core import ActType
 from gymnasium.utils import play
 from shimmy.atari_env import AtariEnv
 
-from panama_joe import folders, montezuma
-from panama_joe.wrappers import AtariDemo
+from panama_joe.utils import folders, montezuma
+from panama_joe.utils.wrappers import AtariDemo
 
 MEANING_SAVE = 'SAVE'
 MEANING_TIME_TRAVEL = 'TIMETRAVEL'

@@ -4,7 +4,7 @@ import time
 
 from stable_baselines3.ppo import PPO
 
-from panama_joe import folders, montezuma
+from panama_joe.utils import folders, montezuma
 
 
 def main():
@@ -32,7 +32,7 @@ def train_baseline(model_name, total_timesteps=2048, seed=None):
     if model_name == 'ppo':
         model = PPO('MlpPolicy', env, seed=seed)
     else:
-        raise ValueError(f'Unknown algorithm name: {algorithm_name}')
+        raise ValueError(f'Unknown algorithm name: {model_name}')
 
     model.learn(total_timesteps=total_timesteps, log_interval=16)
     model_dir = folders.model_dir(model_name)
