@@ -10,6 +10,7 @@ from gymnasium.core import ActType
 from gymnasium.utils import play
 from shimmy.atari_env import AtariEnv
 
+from panama_joe import folders, montezuma
 from panama_joe.wrappers import AtariDemo
 
 MEANING_SAVE = 'SAVE'
@@ -42,10 +43,6 @@ def main():
     parser = argparse.ArgumentParser(
         description='Record demonstrations.'
     )
-    parser.add_argument('--env_id',
-                        default='ALE/MontezumaRevenge-v5',
-                        type=str,
-                        help='Environment ID.')
     parser.add_argument('--fps',
                         default=30,
                         type=int,
@@ -76,9 +73,9 @@ def main():
     record_demo(**kwargs)
 
 
-def record_demo(env_id, fps=30, zoom=3.0, obs_type='ram', frameskip=1, repeat_action_probability=0.0, demo_file_name=None):
+def record_demo(fps=30, zoom=3.0, obs_type='ram', frameskip=1, repeat_action_probability=0.0, demo_file_name=None):
     pygame.init()
-    pygame.display.set_caption(f'Recording demonstration for {env_id}')
+    pygame.display.set_caption(f'Recording demonstration for {montezuma.ENV_ID}')
 
     def callback(obs_t_, obs_tp1_, action_, rew_, terminated_, truncated_, info_):
         try:
@@ -86,13 +83,16 @@ def record_demo(env_id, fps=30, zoom=3.0, obs_type='ram', frameskip=1, repeat_ac
         except AttributeError:
             pass
 
-    env = AtariDemo(gym.make(env_id, obs_type=obs_type, frameskip=frameskip, repeat_action_probability=repeat_action_probability, render_mode='rgb_array'))
+    env = montezuma.make_env(obs_type=obs_type,
+                             frameskip=frameskip,
+                             repeat_action_probability=repeat_action_probability,
+                             render_mode='rgb_array')  # The "real" environment.
+    env = AtariDemo(env, demos_dir=folders.demo_dir('human'))  # Enable saving, time traveling.
     atari_env = env.unwrapped
     assert isinstance(atari_env, AtariEnv)
     meanings = atari_env.get_action_meanings() + [MEANING_SAVE, MEANING_TIME_TRAVEL]
     meaning_to_index = {meaning: i for i, meaning in enumerate(meanings)}
     key_to_index = {key: meaning_to_index[meaning] for key, meaning in KEY_TO_MEANING.items()}
-    # play.play(env, fps=fps, zoom=zoom, callback=callback, keys_to_action=key_to_index, noop=meaning_to_index['NOOP'])
     play_game(env, fps=fps, zoom=zoom, callback=callback, keys_to_action=key_to_index, noop=meaning_to_index['NOOP'], demo_file_name=demo_file_name)
 
 
@@ -107,6 +107,9 @@ def play_game(
         noop: ActType = 0,
         demo_file_name: Optional[str] = None
 ):
+    """
+    Copied from `play.play()` except for usage of `demo_file_name` on reset.
+    """
     env.reset(seed=seed)
 
     if keys_to_action is None:

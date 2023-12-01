@@ -12,10 +12,10 @@ class AtariDemo(gym.Wrapper):
         Records actions taken, creates checkpoints, allows time travel, restoring and saving of states
     """
 
-    def __init__(self, env, disable_time_travel=False):
+    def __init__(self, env, demos_dir='.', disable_time_travel=False):
         super(AtariDemo, self).__init__(env)
-        # self.action_space = spaces.Discrete(len(env.unwrapped._action_set)+1) # add "time travel" action
-        self.action_space = spaces.Discrete(len(env.unwrapped.get_action_meanings())+1)  # add "save" action
+        self.action_space = spaces.Discrete(len(env.unwrapped.get_action_meanings()) + 2)  # "save" and "time travel"
+        self.demos_dir = demos_dir
         self.save_every_k = 100
         self.steps_in_the_past = 0
         self.max_time_travel_steps = 10000
@@ -116,15 +116,22 @@ class AtariDemo(gym.Wrapper):
         return obs, reward, terminated, truncated, info
 
     def save_to_file(self, file_name):
-        dat = {'actions': self.actions, 'checkpoints': self.checkpoints, 'checkpoint_action_nr': self.checkpoint_action_nr,
-               'obs': self.obs,
-               'rewards': self.rewards, 'lives': self.lives}
-        with open(file_name, "wb") as f:
+        dat = {
+            'actions': self.actions,
+            'checkpoints': self.checkpoints,
+            'checkpoint_action_nr': self.checkpoint_action_nr,
+            'obs': self.obs,
+            'rewards': self.rewards,
+            'lives': self.lives
+        }
+        path = os.path.join(self.demos_dir, file_name)
+        with open(path, "wb") as f:
             pickle.dump(dat, f)
 
     def load_from_file(self, file_name):
         obs = self.reset()
-        with open(file_name, "rb") as f:
+        path = os.path.join(self.demos_dir, file_name)
+        with open(path, "rb") as f:
             dat = pickle.load(f)
         self.actions = dat['actions']
         self.checkpoints = dat['checkpoints']
