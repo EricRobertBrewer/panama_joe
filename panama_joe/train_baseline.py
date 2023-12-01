@@ -19,6 +19,10 @@ def main():
                         default=2048,
                         type=int,
                         help='Number of steps to run in the environment.')
+    parser.add_argument('--render_mode',
+                        choices=('rgb_array', 'rgb_array_list', 'human'),
+                        default='rgb_array',
+                        help='Render mode.')
     parser.add_argument('--seed',
                         type=int,
                         help='Seed to random number generator.')
@@ -27,10 +31,12 @@ def main():
     train_baseline(**kwargs)
 
 
-def train_baseline(model_name, total_timesteps=2048, seed=None):
-    env = montezuma.make_env()
+def train_baseline(model_name, total_timesteps=2048, render_mode='rgb_array', seed=None):
+    env = montezuma.make_env(render_mode=render_mode)
+    # env = montezuma.make_env(obs_type='rgb', render_mode=render_mode)
     if model_name == 'ppo':
         model = PPO('MlpPolicy', env, seed=seed)
+        # model = PPO('CnnPolicy', env, seed=seed)
     else:
         raise ValueError(f'Unknown algorithm name: {model_name}')
 

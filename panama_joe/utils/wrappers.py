@@ -1,17 +1,15 @@
 import os
 import pickle
 import time
-from typing import SupportsFloat, Any
 
 import gymnasium as gym
 from gymnasium import spaces
-from gymnasium.core import WrapperActType, WrapperObsType
 from shimmy.atari_env import AtariEnv
 
 
 class AtariDemo(gym.Wrapper):
     """
-        Records actions taken, creates checkpoints, allows time travel, restoring and saving of states
+    Records actions taken, creates checkpoints, allows time travel, restoring and saving of states
     """
 
     def __init__(self, env, demos_dir='.', disable_time_travel=False):
@@ -172,17 +170,15 @@ class AtariDemo(gym.Wrapper):
 
 class DeathCostWrapper(gym.Wrapper):
 
-    def __init__(self, env, cost=-10):
+    def __init__(self, env, death_cost=-10):
         super(DeathCostWrapper, self).__init__(env)
-        self.cost = cost
+        self.death_cost = death_cost
         self.lives = None
 
-    def step(
-        self, action: WrapperActType
-    ) -> tuple[WrapperObsType, SupportsFloat, bool, bool, dict[str, Any]]:
+    def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         lives = info['lives']
         if self.lives is not None and lives < self.lives:
-            reward += self.cost
+            reward += self.death_cost
         self.lives = lives
         return obs, reward, terminated, truncated, info

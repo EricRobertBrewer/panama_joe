@@ -11,7 +11,7 @@ from gymnasium.utils import play
 from shimmy.atari_env import AtariEnv
 
 from panama_joe.utils import folders, montezuma
-from panama_joe.utils.wrappers import AtariDemo
+from panama_joe.utils.wrappers import AtariDemo, DeathCostWrapper
 
 MEANING_SAVE = 'SAVE'
 MEANING_TIME_TRAVEL = 'TIMETRAVEL'
